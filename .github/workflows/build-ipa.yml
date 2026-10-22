@@ -1,0 +1,53 @@
+
+name: Build PocketPal IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install CocoaPods
+        run: cd ios && pod install
+
+      - name: Check signing configuration
+        run: |
+          echo "Checking IPA build configuration"
+          grep -n "build_for_device_farm" ios/fastlane/Fastfile
+
+      - name: Build IPA
+        run: |
+          yarn ios:build:ipa
+
+      - name: Upload IPA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketPal-IPA
+          path: ios/build/**/*.ipa
+          if-no-files-found: warn
+          retention-days: 7
